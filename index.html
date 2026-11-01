@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ZKVM — Launch a coin. Prove the execution.</title>
+<meta name="description" content="A Solana launchpad where every coin is paired with a zero-knowledge virtual machine that runs jobs off-chain and produces proofs anyone can verify.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="mark.png">
+<meta property="og:title" content="ZKVM — Launch a coin. Prove the execution.">
+<meta property="og:image" content="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ECECEC; --bg2:#E1E1E1; --panel:#F5F5F5; --ink:#141414; --muted:#5A5A5A; --faint:#8C8C8C;
+  --line:rgba(20,20,20,.13); --line2:rgba(20,20,20,.26);
+  --c1:var(--ink); --c2:var(--ink); --c3:var(--ink); --c4:var(--ink); --c5:var(--ink); --c6:var(--ink); --c7:var(--ink);
+  --acc:var(--ink);
+  --bezel:#C8C8C8; --bezel-hi:#E8E8E8; --bezel-dk:#888888; --bezel-ink:#151515;
+  --screen:#060606; --scr-ink:#E8E8E8; --scr-dim:#6E6E6E; --scr-line:#262626;
+  --s1:#FFFFFF; --s2:#FFFFFF; --s3:#FFFFFF; --s4:#FFFFFF; --s5:#FFFFFF; --s6:#FFFFFF; --s7:#FFFFFF;
+  --rainbow:linear-gradient(90deg,var(--ink),var(--ink));
+  --scr-rainbow:linear-gradient(90deg,#fff,#fff);
+  --sans:"Pixelify Sans","VT323","Courier New",monospace;
+  --px:"VT323","Courier New",Courier,monospace;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#000000; --bg2:#0B0B0B; --panel:#080808; --ink:#EDEDED; --muted:#8C8C8C; --faint:#575757;
+    --line:rgba(237,237,237,.09); --line2:rgba(237,237,237,.2);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#000000; --bg2:#0B0B0B; --panel:#080808; --ink:#EDEDED; --muted:#8C8C8C; --faint:#575757;
+  --line:rgba(237,237,237,.09); --line2:rgba(237,237,237,.2);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 76px);-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;-webkit-font-smoothing:none;font-smooth:never;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.55;overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:100;background:repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--bg)}
+img{max-width:100%;display:block}
+a{color:inherit}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 28px}
+.tag{font-family:var(--px);font-size:18px;color:var(--faint);line-height:1.2}
+.tag-line{display:inline-block;border-top:1px solid var(--line2);padding-top:4px}
+.rb{background:var(--rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* header */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+
+.top .wrap{display:flex;align-items:center;gap:20px;height:72px;max-width:1440px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font-weight:600;font-size:26px;letter-spacing:0}
+.brand img{width:40px;height:40px;border-radius:4px}
+.cursor{display:inline-block;width:.5em;height:.09em;background:var(--rainbow);margin-left:2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.cursor{animation:none}}
+nav.links{display:flex;gap:30px;margin:0 auto}
+nav.links a{text-decoration:none;color:var(--muted);font-size:16px}
+nav.links a:hover{color:var(--ink)}
+.status{display:flex;align-items:center;gap:8px;font-family:var(--px);font-size:17px;color:var(--faint);white-space:nowrap}
+.leds{display:flex;gap:3px}.leds i{width:6px;height:6px;border-radius:50%}
+@media (max-width:980px){nav.links{display:none}.status{margin-left:auto}}
+@media (max-width:560px){.status{display:none}.brand{margin-right:auto}}
+
+.bz{appearance:none;border:0;cursor:pointer;text-decoration:none;background:var(--bezel);color:var(--bezel-ink);font-weight:600;font-size:15px;padding:11px 16px;border-radius:3px;display:inline-flex;align-items:center;gap:10px;white-space:nowrap;box-shadow:inset 2px 2px 0 var(--bezel-hi),inset -2px -2px 0 var(--bezel-dk),0 2px 0 rgba(0,0,0,.35)}
+.bz:hover{filter:brightness(1.05)}
+.bz:active{box-shadow:inset -2px -2px 0 var(--bezel-hi),inset 2px 2px 0 var(--bezel-dk);transform:translateY(1px)}
+.bz:disabled{opacity:.5;cursor:not-allowed}
+.bz .pwr{width:9px;height:9px;border-radius:1px;background:#4A4334}
+.bz.on .pwr{background:#F2F2F2;box-shadow:0 0 8px #F2F2F2}
+.ghost{appearance:none;background:none;border:1px solid var(--line2);color:var(--ink);cursor:pointer;padding:11px 16px;border-radius:3px;font-size:15px;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.ghost:hover{border-color:var(--ink)}
+.xlink{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border:1px solid var(--line2);border-radius:3px;color:var(--ink);text-decoration:none;flex-shrink:0}
+.xlink:hover{border-color:var(--acc);color:var(--acc)}
+.xlink svg{width:17px;height:17px;fill:currentColor}
+.wallet-wrap{position:relative}
+.wmenu{position:absolute;right:0;top:calc(100% + 8px);min-width:260px;background:var(--panel);border:1px solid var(--line2);border-radius:4px;padding:14px;display:none;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.wmenu.open{display:block}
+.wmenu .addr{font-family:var(--px);font-size:20px;word-break:break-all;line-height:1.1}
+.wmenu .bal{color:var(--muted);font-size:14px;margin:6px 0 12px}
+.wmenu button{width:100%;text-align:left;background:none;border:0;padding:8px 0;border-top:1px solid var(--line);cursor:pointer;color:var(--ink);font-size:15px}
+.wmenu button:hover{color:var(--acc)}
+
+/* hero */
+.hero{padding:56px 0 40px}
+.hero-meta{display:flex;justify-content:space-between}
+.hero .eyebrow{text-align:center;margin-top:24px}
+.hero h1{font-weight:500;font-size:clamp(42px,7.6vw,108px);line-height:.98;letter-spacing:0;margin:40px 0 0;text-align:center}
+.hero h1 .l2{display:block}
+.hero-grid{display:grid;grid-template-columns:1fr minmax(280px,560px) 1fr;align-items:center;gap:24px;margin-top:20px}
+.side{font-family:var(--px);font-size:19px;line-height:1.3;color:var(--muted)}
+.side .k{margin-bottom:14px}
+.side .rule{width:90px;height:1px;background:var(--line2);margin-top:18px}
+.side.r{text-align:right}.side.r .rule{margin-left:auto}
+figure.logo{margin:0;position:relative}
+figure.logo::before{content:"";position:absolute;inset:14% 12%;background:conic-gradient(from 0deg,rgba(255,64,64,.18),rgba(255,229,59,.18),rgba(75,240,90,.18),rgba(255,255,255,.18),rgba(224,75,255,.18),rgba(255,64,64,.18));filter:blur(40px);border-radius:50%}
+figure.logo img{position:relative;width:100%;border-radius:14px}
+figure.logo figcaption{text-align:center;margin-top:6px}
+.hero-sub{text-align:center;margin-top:28px}
+.hero-sub p{font-size:clamp(20px,2.4vw,30px);margin:0;letter-spacing:0}
+.hero-sub p + p{font-size:17px;color:var(--muted);margin:6px auto 0;max-width:40em}
+.cta{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:28px}
+@media (max-width:820px){.hero-grid{grid-template-columns:1fr}.side{display:none}}
+
+.chainstrip{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:40px}
+.chip{appearance:none;background:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);border-radius:2px;padding:5px 11px;font-family:var(--px);font-size:19px;color:var(--ink)}
+.chip i{width:8px;height:8px;display:block}
+.chip.soon{color:var(--faint)}
+.chip:hover{border-color:var(--ink)}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.mon{margin:0;max-width:560px;width:100%;justify-self:center}
+.mon .crt{padding:26px 26px 30px}
+.mon .glass{aspect-ratio:4/3;background:radial-gradient(ellipse at 50% 55%,#101010,#040404 70%)}
+.mon canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:pan-y;cursor:grab}
+#glg{filter:blur(7px) saturate(1.5);opacity:.85;pointer-events:none}
+.glabels{position:absolute;inset:0;pointer-events:none}
+.glab{position:absolute;left:0;top:0;font-family:var(--px);font-size:17px;line-height:1;white-space:nowrap;text-shadow:0 0 6px currentColor;transition:opacity .2s}
+.hud{position:absolute;left:12px;right:12px;display:flex;white-space:nowrap;justify-content:space-between;gap:10px;font-family:var(--px);font-size:16px;color:var(--scr-dim);pointer-events:none;z-index:2}
+.hud.top{top:9px}.hud.bot{bottom:9px}
+#gevent{color:var(--s4)}
+.mon .neck{width:30%;height:20px;margin:0 auto;background:var(--bezel);box-shadow:inset 3px 0 0 var(--bezel-hi),inset -4px -3px 0 var(--bezel-dk)}
+.mon .base{width:58%;height:20px;margin:0 auto;background:var(--bezel);border-radius:3px;box-shadow:inset 3px 3px 0 var(--bezel-hi),inset -4px -4px 0 var(--bezel-dk),0 16px 30px rgba(0,0,0,.4)}
+.mon figcaption{text-align:center;margin-top:12px}
+@media (max-width:560px){.hud{font-size:14px;left:9px;right:9px}.hud.top{top:6px}.hud.bot{bottom:6px}.hud .sup2{display:none}.hud.top span:first-child{display:none}.glab{font-size:14px}.mon .crt{padding:14px 14px 18px}}
+
+section.sec{padding:110px 0;border-top:1px solid var(--line)}
+.sec-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:48px}
+.sec-head h2{font-weight:500;font-size:clamp(34px,4.6vw,60px);line-height:1.02;letter-spacing:0;margin:14px 0 0;max-width:15em}
+.sec-head h2 .dim{display:block;color:var(--faint)}
+.sec-head .aside{color:var(--muted);max-width:26em;margin:0}
+
+/* CRT */
+.crt{background:var(--bezel);border-radius:10px;padding:22px;position:relative;box-shadow:inset 3px 3px 0 var(--bezel-hi),inset -4px -4px 0 var(--bezel-dk),0 24px 60px rgba(0,0,0,.35)}
+.crt::before{content:"";position:absolute;inset:7px;border-radius:6px;pointer-events:none;background-image:radial-gradient(circle,var(--bezel-dk) 1.6px,transparent 2.2px);background-size:15px 15px;opacity:.8}
+.crt .glass{position:relative;background:var(--screen);border-radius:5px;color:var(--scr-ink);overflow:hidden;box-shadow:inset 0 0 0 3px #1c1a14,inset 0 0 40px rgba(255,255,255,.06)}
+.crt .glass::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.35) 0 1px,transparent 1px 3px)}
+.crt .pled{position:absolute;right:26px;bottom:6px;width:18px;height:7px;background:#F2F2F2;border:1px solid #1c1a14;box-shadow:0 0 8px #F2F2F2}
+.scr{padding:20px 22px;font-family:var(--px);font-size:20px;line-height:1.25}
+.scr .hdr{display:flex;justify-content:space-between;gap:12px;color:var(--scr-dim);border-bottom:1px dashed var(--scr-line);padding-bottom:8px}
+.srb{background:var(--scr-rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+.empty{display:grid;place-items:center;min-height:300px;text-align:center;color:var(--scr-dim)}
+.empty .big{font-size:30px}
+@media (max-width:560px){.crt{padding:12px}.crt::before{inset:3px}.scr{padding:14px}}
+
+/* transfer visual */
+.xfer{display:grid;grid-template-columns:340px 1fr;gap:28px;align-items:start}
+@media (max-width:920px){.xfer{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line2);border-radius:4px;background:var(--panel);padding:22px}
+.field{margin-bottom:18px}
+.field label,.flabel{display:block;font-size:14px;color:var(--muted);margin-bottom:7px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.inp{width:100%;background:transparent;border:1px solid var(--line2);border-radius:3px;padding:11px 12px;font-size:17px}
+.inp:focus{border-color:var(--acc);outline:none}
+select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+select.inp option{background:var(--panel);color:var(--ink)}
+.panel .bz.full{width:100%;justify-content:center;padding:13px}
+.lanes{display:grid;grid-template-columns:1fr 1.3fr 1fr;align-items:center;gap:10px;margin-top:18px}
+.node{border:2px solid var(--scr-dim);padding:12px;text-align:center;min-height:118px;display:flex;flex-direction:column;justify-content:center}
+.node .nm{font-size:24px}
+.node .dl{font-size:26px;margin-top:6px}
+.node .lb{color:var(--scr-dim);font-size:17px}
+.wire{position:relative;height:24px}
+.wire::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px dashed var(--scr-line)}
+.packet{position:absolute;top:50%;left:0;width:16px;height:16px;margin-top:-8px;background:var(--scr-rainbow);box-shadow:0 0 12px rgba(255,255,255,.6);opacity:0}
+.packet.go{animation:fly 1.4s steps(14) forwards}
+@keyframes fly{0%{left:0;opacity:1}100%{left:calc(100% - 16px);opacity:1}}
+.wire .wl{position:absolute;top:calc(50% + 14px);left:0;right:0;text-align:center;color:var(--scr-dim);font-size:16px}
+.log{margin-top:22px;border-top:1px dashed var(--scr-line);padding-top:10px}
+.log div{display:grid;grid-template-columns:34px 1fr;gap:8px;padding:3px 0;color:var(--scr-dim)}
+.log div.on{color:var(--scr-ink)}
+.log div.on b{color:var(--s4)}
+.log b{font-weight:400}
+.sup{display:flex;justify-content:space-between;gap:12px;margin-top:12px;border:1px solid var(--scr-line);padding:8px 12px}
+.sup b{font-weight:400;color:var(--s4);text-align:right}
+@media (max-width:560px){.lanes{grid-template-columns:1fr 1fr;row-gap:4px}.lanes .wire{grid-column:1/-1;grid-row:2;height:44px}.lanes .wire .wl{top:calc(50% + 10px)}#nTo{grid-row:1;grid-column:2}.node{min-height:100px}}
+
+/* factory */
+.market{display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start}
+@media (max-width:1020px){.market{grid-template-columns:1fr}}
+.tscroll{overflow-x:auto;border:1px solid var(--line2);border-radius:4px}
+table.lb{width:100%;border-collapse:collapse;min-width:760px;font-size:15px}
+.lb th{font-weight:400;color:var(--faint);text-align:right;padding:12px 14px;border-bottom:1px solid var(--line2);font-size:14px;white-space:nowrap}
+.lb th:nth-child(-n+3){text-align:left}
+.lb td{padding:13px 14px;border-bottom:1px solid var(--line)}
+.lb td.emptyrow{text-align:center;color:var(--muted);padding:56px 14px}
+.lb td.emptyrow a{color:var(--acc)}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line2);border-left:1px solid var(--line)}
+.step{padding:28px 26px 34px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.step .num{font-family:var(--px);font-size:20px}
+.step h3{font-weight:500;font-size:23px;margin:12px 0 10px;letter-spacing:0}
+.step p{color:var(--muted);margin:0;font-size:16px}
+@media (max-width:860px){.steps{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.steps{grid-template-columns:1fr}}
+
+/* launch */
+.launch{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
+@media (max-width:920px){.launch{grid-template-columns:1fr}}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ck{display:flex;align-items:center;gap:10px;border:1px solid var(--line2);border-radius:3px;padding:9px 11px;cursor:pointer;font-size:16px}
+.ck input{accent-color:var(--acc);width:16px;height:16px;margin:0}
+.field .ck{display:flex;font-size:16px;margin:0;color:var(--ink)}
+.field .ck.dis{color:var(--faint);cursor:not-allowed}
+.ck small{margin-left:auto;font-family:var(--px);font-size:16px;color:var(--faint)}
+.sigbox{margin-top:14px;font-family:var(--px);font-size:17px;word-break:break-all;color:var(--muted);display:none;border-left:2px solid var(--acc);padding-left:12px}
+.sigbox.show{display:block}
+.pv .coin{display:flex;align-items:center;gap:16px;margin-top:16px}
+.pv .glyph{width:64px;height:64px;border:2px solid var(--s5);display:grid;place-items:center;font-size:26px;color:var(--s5);box-shadow:0 0 14px rgba(255,255,255,.35),inset 0 0 10px rgba(255,255,255,.2)}
+.pv .tk{font-size:42px;line-height:1;word-break:break-all}
+.pv .rows{margin-top:16px;border-top:1px dashed var(--scr-line);padding-top:10px}
+.pv .row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+.pv .row span:first-child{color:var(--scr-dim)}
+.pv .cl{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pv .cl span{border:1px solid currentColor;padding:1px 8px;font-size:18px}
+
+/* flywheel */
+.fly{display:grid;grid-template-columns:1fr 1.1fr;gap:48px;align-items:center}
+@media (max-width:920px){.fly{grid-template-columns:1fr}}
+.fly svg{width:100%;max-width:560px;margin:0 auto;display:block;overflow:visible}
+.fly .ring{fill:none;stroke-width:2;stroke-dasharray:3 6}
+.fly .nd{fill:var(--bg);stroke-width:2}
+.fly svg text{fill:var(--ink);font-family:var(--sans);font-size:15px}
+.fly svg .nn{font-family:var(--px);font-size:17px}
+.fly svg .ctr{font-family:var(--px);font-size:44px}
+.fly svg .ctr2{fill:var(--muted);font-size:14px}
+.fly p{color:var(--muted)}
+.rev{list-style:none;padding:0;margin:20px 0 0}
+.rev li{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line)}
+.rev li span:last-child{color:var(--muted);text-align:right;font-size:15px}
+
+.big-quote{font-size:clamp(28px,3.8vw,48px);line-height:1.12;letter-spacing:0;font-weight:500;margin:20px 0 28px;max-width:20em}
+.big-quote .dim{color:var(--faint)}
+.lede{color:var(--muted);max-width:40em;font-size:18px;margin:0 0 48px}
+.vs{display:grid;grid-template-columns:200px 1fr 1fr;border-top:1px solid var(--line2)}
+.vs > div{padding:16px 14px;border-bottom:1px solid var(--line)}
+.vs .h{color:var(--faint);font-size:14px}
+.vs .h.o{color:var(--acc)}
+.vs .rl{color:var(--muted)}
+.vs .ov{color:var(--ink)}
+.vs .wv{color:var(--muted)}
+@media (max-width:700px){.vs{grid-template-columns:1fr 1fr}.vs .rl{grid-column:1/-1;padding-bottom:0;border-bottom:0;font-size:14px;color:var(--faint)}.vs .h:first-child{display:none}}
+
+.road{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line2)}
+.road > div{padding:24px 24px 28px 0;border-right:1px solid var(--line);margin-right:24px}
+.road > div:last-child{border-right:0;margin-right:0}
+.road .ph{font-family:var(--px);font-size:20px;color:var(--faint)}
+.road .ph.now{color:var(--c4)}
+.road h3{font-weight:500;font-size:22px;margin:10px 0 8px}
+.road p{color:var(--muted);margin:0;font-size:16px}
+@media (max-width:760px){.road{grid-template-columns:1fr}.road>div{border-right:0;margin-right:0;border-bottom:1px solid var(--line)}}
+
+.close{text-align:center;padding:130px 0 120px;border-top:1px solid var(--line)}
+.close h2{font-weight:500;font-size:clamp(36px,5.6vw,80px);line-height:1.02;letter-spacing:0;margin:18px auto 0;max-width:14em}
+.close h2 .dim{color:var(--faint)}
+footer{border-top:1px solid var(--line);padding:28px 0 36px}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
+footer p{margin:0;color:var(--faint);font-size:14px;max-width:46em}
+
+.modal{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px}
+.modal.open{display:flex}
+.modal .crt{width:100%;max-width:440px}
+.modal h3{margin:0 0 4px;font-weight:400;font-size:30px}
+.modal .sub{color:var(--scr-dim);margin:12px 0 8px}
+.wopt{display:flex;justify-content:space-between;align-items:center;width:100%;appearance:none;background:none;border:1px solid var(--scr-line);color:var(--scr-ink);padding:11px 14px;margin-bottom:8px;cursor:pointer;font-family:var(--px);font-size:22px;border-radius:2px;text-decoration:none}
+.wopt:hover{border-color:var(--s5);color:var(--s5)}
+.wopt small{font-size:17px;color:var(--scr-dim)}
+.wopt.det small{color:var(--s4)}
+.merr{color:var(--s1);min-height:1.2em;margin-top:6px}
+.mclose{position:absolute;top:30px;right:32px;z-index:2;background:none;border:0;color:var(--scr-dim);font-family:var(--px);font-size:22px;cursor:pointer}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:95;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:3px;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+
+/* A2A additions */
+.tpl{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line2);border-left:1px solid var(--line)}
+.tcard{padding:24px 24px 28px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.tcard .tk{font-family:var(--px);font-size:30px;line-height:1}
+.tcard p{margin:0;color:var(--muted);font-size:16px}
+.tcard .hires{font-family:var(--px);font-size:17px;color:var(--faint);margin-top:auto;padding-top:10px}
+.tcard button{align-self:flex-start;margin-top:6px}
+@media (max-width:900px){.tpl{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.tpl{grid-template-columns:1fr}}
+.flow{display:grid;grid-template-columns:1fr 1.1fr;gap:48px;align-items:center}
+@media (max-width:920px){.flow{grid-template-columns:1fr}}
+.fchart{font-family:var(--px);font-size:20px;display:flex;flex-direction:column;align-items:center;gap:0}
+.fbox{border:2px solid var(--ink);padding:10px 16px;text-align:center;min-width:220px;background:var(--panel)}
+.fbox b{font-weight:400;font-size:26px;display:block;line-height:1}
+.fbox span{color:var(--muted);font-size:17px}
+.fbox.you{border-style:dashed}
+.fbox.done{background:var(--ink);color:var(--bg)}
+.fbox.done span{color:var(--bg);opacity:.7}
+.fv{width:2px;height:28px;background:var(--line2);position:relative}
+.fv::after{content:"";position:absolute;left:-4px;bottom:-1px;border:5px solid transparent;border-top-color:var(--line2)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:16px;position:relative;padding-top:28px}
+.frow::before{content:"";position:absolute;top:0;left:25%;right:25%;height:14px;border:2px solid var(--line2);border-bottom:0}
+.frow .fbox{min-width:0}
+.swarm{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start}
+@media (max-width:920px){.swarm{grid-template-columns:1fr}}
+textarea.inp{min-height:130px;resize:vertical;font-family:var(--sans);line-height:1.4}
+.roster{margin-top:12px}
+.rrow{display:grid;grid-template-columns:1fr auto;grid-template-areas:'rk tg' 'role role';gap:2px 12px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--scr-line)}
+.rrow .rk{grid-area:rk}.rrow .tg{grid-area:tg}.rrow .role{grid-area:role}
+.rrow .rk{font-size:28px;line-height:1}
+.rrow .role{color:var(--scr-dim)}
+.rrow .tg{border:1px solid var(--scr-ink);padding:0 8px;font-size:17px}
+.breakthrough{margin-top:28px;border-left:2px solid var(--ink);padding-left:16px;color:var(--muted)}
+.breakthrough b{color:var(--ink);font-weight:500}
+.rb{background:none;color:var(--ink)}
+.mon .glass{aspect-ratio:4/3}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.rv{float:right;font-family:var(--px);font-size:19px;color:var(--ink)}
+.hwtable{border-top:1px solid var(--line2)}
+.hwrow{display:grid;grid-template-columns:140px 1.2fr 1.3fr 120px;gap:14px;padding:14px 4px;border-bottom:1px solid var(--line);align-items:baseline}
+.hwrow.h{color:var(--faint);font-size:14px}
+.hwrow .tk{font-family:var(--px);font-size:24px}
+.hwrow .hw{color:var(--ink)}
+.hwrow .note{color:var(--muted);font-size:15px}
+.hwrow .st{font-family:var(--px);font-size:18px;color:var(--faint);text-align:right}
+.hwrow .st.now{color:var(--ink)}
+@media (max-width:760px){.hwrow{grid-template-columns:1fr auto}.hwrow .hw,.hwrow .note{grid-column:1/-1}.hwrow.h{display:none}}
+.sides3{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line2);margin-top:40px}
+.sides3>div{padding:22px 22px 26px 0;border-right:1px solid var(--line);margin-right:22px}
+.sides3>div:last-child{border-right:0;margin-right:0}
+.sides3 h3{font-weight:500;font-size:20px;margin:0 0 6px}
+.sides3 p{margin:0;color:var(--muted);font-size:16px}
+@media (max-width:760px){.sides3{grid-template-columns:1fr}.sides3>div{border-right:0;margin-right:0;border-bottom:1px solid var(--line)}}
+.split{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.metrics span{border:1px solid var(--line2);padding:4px 10px;font-family:var(--px);font-size:18px;color:var(--muted)}
+/* DPU teal theme */
+:root{--acc:#0A877B;--bezel:#D9D2C4;--bezel-hi:#EEE8DC;--bezel-dk:#9B9385;--bezel-ink:#1A1813;--screen:#040A09;--scr-ink:#DDF7F3;--scr-dim:#4E7471;--scr-line:#14312D;
+  --s1:#3DF2DE;--s2:#3DF2DE;--s3:#3DF2DE;--s4:#3DF2DE;--s5:#3DF2DE;--s6:#3DF2DE;--s7:#3DF2DE;--scr-rainbow:linear-gradient(90deg,#3DF2DE,#3DF2DE);
+  --bg:#ECE8E0;--bg2:#E2DDD2;--panel:#F5F2EC;--ink:#151513;--muted:#5C5950;--faint:#8D887C}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--acc:#3DF2DE;--bg:#000000;--bg2:#070A0A;--panel:#060808;--ink:#ECE7DE;--muted:#8B877D;--faint:#57544D}}
+:root[data-theme="dark"]{--acc:#3DF2DE;--bg:#000000;--bg2:#070A0A;--panel:#060808;--ink:#ECE7DE;--muted:#8B877D;--faint:#57544D}
+.crt .pled{background:#3DF2DE;box-shadow:0 0 8px #3DF2DE}
+.bz.on .pwr{background:#3DF2DE;box-shadow:0 0 8px #3DF2DE}
+.cursor{background:var(--acc)}
+.step .num,.tcard .tk,.road .ph.now,.hwrow .st.now,.vs .h.o,.lb td.emptyrow a,.side .k{color:var(--acc)}
+.chip[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#000}
+.fbox.done{background:var(--acc);border-color:var(--acc);color:#000}
+.fbox.done span{color:#000}
+.tag-line{border-top-color:var(--acc)}
+input[type=range]{accent-color:var(--acc)}
+.inp:focus{border-color:var(--acc)}
+.rb{color:var(--acc)}
+.big-quote .acc{color:var(--acc)}
+#gevent{color:#3DF2DE}
+.mon .glass{background:radial-gradient(ellipse at 50% 55%,#071715,#020605 70%)}
+
+@media (max-width:560px){#globeBox .glab{font-size:12px}}
+
+/* free-standing DPU hero */
+.mon.free{position:relative}
+.mon.free #globeBox{position:relative;aspect-ratio:5/4;width:100%}
+.hero-grid:has(.mon.free){grid-template-columns:1fr minmax(300px,700px) 1fr}
+.mon.free{max-width:700px}
+.mon.free .hud{position:static;display:flex;justify-content:space-between;gap:10px;color:var(--faint);font-size:17px;padding:0 4px}
+.mon.free .hud.bot #gevent{color:var(--acc)}
+@media (max-width:560px){.mon.free .hud{font-size:14px}.mon.free .hud.top span:first-child{display:none}.mon.free .hud .sup2{display:inline}}
+/* rack controls */
+.rackchips{margin-top:14px}
+.ctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;margin-top:10px}
+.cbtn{appearance:none;border:1px solid var(--line2);background:none;color:var(--ink);font-family:var(--px);font-size:18px;line-height:1.1;padding:4px 10px;border-radius:2px;cursor:pointer;min-width:34px}
+.cbtn:hover{border-color:var(--acc)}
+.cbtn[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#000}
+.cload{display:inline-flex;align-items:center;gap:8px;font-family:var(--px);font-size:18px;color:var(--muted);padding:0 6px}
+.cload input{width:90px}
+.csep{width:1px;height:22px;background:var(--line2);margin:0 4px}
+.unitbar{display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+.ubtn{appearance:none;border:1px solid var(--line2);background:none;color:var(--ink);font-family:var(--px);font-size:17px;padding:3px 8px;border-radius:2px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.ubtn .hb{width:34px;height:6px;border:1px solid var(--line2);display:inline-block;position:relative}
+.ubtn .hb i{position:absolute;left:0;top:0;bottom:0;background:var(--acc);width:0}
+.ubtn[aria-pressed="true"]{border-color:var(--acc)}
+.ubtn.off{color:var(--faint);text-decoration:line-through}
+.ubtn.hot .hb i{background:#FFB547}
+.ubtn.trip{border-color:#FF5A4E;color:#FF5A4E}
+.ubtn.trip .hb i{background:#FF5A4E}
+#gtip{position:absolute;left:0;top:0;pointer-events:none;background:var(--bg);border:1px solid var(--acc);color:var(--ink);font-family:var(--px);font-size:16px;line-height:1.2;padding:3px 8px;white-space:nowrap;opacity:0;z-index:3;transition:opacity .12s}
+#gl:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media (max-width:560px){.cbtn{font-size:16px;padding:3px 8px}.csep{display:none}.cload input{width:70px}#gtip{white-space:normal;max-width:220px}}
+/* BME theme: burn + mint */
+:root{--acc:#C2410C;--burn:#C2410C;--mint:#0E8F5A;--bezel:#D9D6D0;--bezel-hi:#EEECE7;--bezel-dk:#96928A;--screen:#0A0605;--scr-ink:#F4ECE6;--scr-dim:#7A6A62;--scr-line:#2A1A15;
+  --s1:#FF7A33;--s2:#FF7A33;--s3:#FF7A33;--s4:#FF7A33;--s5:#FF7A33;--s6:#FF7A33;--s7:#FF7A33;--scr-rainbow:linear-gradient(90deg,#FF7A33,#4CE38A);
+  --bg:#EEEBE6;--bg2:#E4E0D9;--panel:#F6F4F0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--acc:#FF7A33;--burn:#FF7A33;--mint:#4CE38A;--bg:#000;--bg2:#0A0807;--panel:#080606}}
+:root[data-theme="dark"]{--acc:#FF7A33;--burn:#FF7A33;--mint:#4CE38A;--bg:#000;--bg2:#0A0807;--panel:#080606}
+.crt .pled,.bz.on .pwr{background:#4CE38A;box-shadow:0 0 8px #4CE38A}
+.rb{background:linear-gradient(90deg,var(--burn),var(--mint));-webkit-background-clip:text;background-clip:text;color:transparent}
+#gevent{color:var(--acc)}
+.mon.free .hud.bot #gevent{color:var(--acc)}
+.burn{color:var(--burn)}.mint{color:var(--mint)}
+.econ{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line2);margin-top:12px}
+.econ>div{padding:8px 10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);font-family:var(--px)}
+.econ>div:nth-child(3n){border-right:0}
+.econ span{display:block;font-size:15px;color:var(--faint)}
+.econ b{font-weight:400;font-size:22px}
+.econ .wide{grid-column:1/-1;border-right:0;border-bottom:0;display:flex;align-items:center;gap:12px}
+#spark{width:100%;height:46px;image-rendering:pixelated;display:block}
+.sliders{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 14px;margin-top:10px}
+.sl{font-family:var(--px);font-size:17px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.sl b{font-weight:400;color:var(--ink);float:right}
+.sl input{width:100%}
+@media (max-width:560px){.sliders{grid-template-columns:1fr}.econ{grid-template-columns:1fr 1fr}.econ>div:nth-child(3n){border-right:1px solid var(--line)}.econ>div:nth-child(2n){border-right:0}}
+.rulegrid{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--line2);border-left:1px solid var(--line)}
+.rule{padding:24px 24px 28px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.rule .k{font-family:var(--px);font-size:20px;color:var(--acc)}
+.rule h3{font-weight:500;font-size:22px;margin:8px 0 6px}
+.rule p{margin:0;color:var(--muted);font-size:16px}
+@media (max-width:700px){.rulegrid{grid-template-columns:1fr}}
+.fbox.burnbox{border-color:var(--burn)}.fbox.mintbox{border-color:var(--mint)}
+.fbox.done{background:var(--mint);border-color:var(--mint)}
+.mon #spark{position:static;inset:auto;width:100%;height:40px;cursor:default;touch-action:auto}
+.sl{display:grid;grid-template-columns:1fr auto;align-items:center}
+.sl b{float:none}
+.sl input{grid-column:1/-1}
+.mon.free #globeBox{aspect-ratio:3/2}
+
+
+/* ZKVM theme: gold on black */
+:root{--acc:#8A6A00;--burn:#8A6A00;--mint:#8A6A00;--bezel:#D9D2C2;--bezel-hi:#EEE8DA;--bezel-dk:#9A9282;--screen:#0A0904;--scr-ink:#FFF6CC;--scr-dim:#7D7442;--scr-line:#2A2610;
+  --s1:#FFD60A;--s2:#FFD60A;--s3:#FFD60A;--s4:#FFD60A;--s5:#FFD60A;--s6:#FFD60A;--s7:#FFD60A;--scr-rainbow:linear-gradient(90deg,#FFD60A,#FFE97A);
+  --bg:#EFECE3;--bg2:#E5E1D5;--panel:#F7F5EF;--ink:#16150F;--muted:#5E5A4C;--faint:#8E8875}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--acc:#FFD60A;--burn:#FFD60A;--mint:#FFD60A;--bg:#000;--bg2:#0A0906;--panel:#080705;--ink:#EEEADC;--muted:#8C8778;--faint:#57534A}}
+:root[data-theme="dark"]{--acc:#FFD60A;--burn:#FFD60A;--mint:#FFD60A;--bg:#000;--bg2:#0A0906;--panel:#080705;--ink:#EEEADC;--muted:#8C8778;--faint:#57534A}
+.rb{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--acc)}
+.crt .pled,.bz.on .pwr{background:#FFD60A;box-shadow:0 0 8px #FFD60A}
+.chip[aria-pressed="true"],.cbtn[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:#0A0904}
+.fbox.done{background:var(--acc);border-color:var(--acc);color:#0A0904}
+.fbox.done span{color:#0A0904}
+.pos{color:var(--acc)}.neg{color:#FF5A4E}.ok{color:#7CF07C}
+.sliders{grid-template-columns:repeat(4,1fr)}
+.econ{grid-template-columns:repeat(4,1fr)}
+.econ>div:nth-child(3n){border-right:1px solid var(--line)}
+.econ>div:nth-child(4n){border-right:0}
+@media (max-width:560px){.econ{grid-template-columns:1fr 1fr}.econ>div:nth-child(2n){border-right:0}.sliders{grid-template-columns:1fr 1fr}}
+.mon.free #globeBox{background:radial-gradient(ellipse at 50% 55%,rgba(255,214,10,.06),transparent 65%)}
+.cbtn.warn{border-color:#FF5A4E;color:#FF5A4E}.cbtn.warn[aria-pressed="true"]{background:#FF5A4E;color:#000}
+.proofgrid{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line2);border-left:1px solid var(--line)}
+.pcell{padding:24px 24px 28px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pcell .k{font-family:var(--px);font-size:20px}
+.pcell h3{font-weight:500;font-size:22px;margin:8px 0 6px}
+.pcell p{margin:0;color:var(--muted);font-size:16px}
+@media (max-width:700px){.proofgrid{grid-template-columns:1fr}}
+.vision3{font-family:var(--px);font-size:24px;color:var(--muted);margin-top:22px;line-height:1.4}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="ZKVM home"><img src="mark.png" alt="">ZKVM<span class="cursor" aria-hidden="true"></span></a>
+    <nav class="links" aria-label="Sections">
+      <a href="#provers">Provers</a>
+      <a href="#factory">Proof factory</a>
+      <a href="#launch">Launch</a>
+      <a href="#flywheel">$ZKVM</a>
+    </nav>
+    <div class="status"><span class="leds"><i style="background:#FFD60A"></i><i style="background:#FFD60A;opacity:.5"></i><i style="background:#FFD60A"></i></span>PROVERS / ONLINE</div>
+    <a class="xlink" href="https://x.com/ZKVMLive" target="_blank" rel="noopener noreferrer" aria-label="ZKVM on X" title="@ZKVMLive on X"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+    <div class="wallet-wrap">
+      <button class="bz" id="walletBtn" aria-haspopup="true"><span class="pwr"></span><span id="walletLabel">Connect wallet</span></button>
+      <div class="wmenu" id="wmenu" role="menu">
+        <div class="tag">Connected with <span id="wname"></span></div>
+        <div class="addr" id="waddr"></div>
+        <div class="bal" id="wbal">Checking balance…</div>
+        <button id="wcopy" role="menuitem">Copy address</button>
+        <button id="wdisc" role="menuitem">Disconnect</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-meta"><span class="tag">Verifiable computing launchpad</span><span class="tag">Est. 2026</span></div>
+    <div class="eyebrow"><span class="tag tag-line">Don't trust. Verify.</span></div>
+    <h1>Launch a coin.<span class="l2 rb">Prove the execution.</span></h1>
+    <div class="hero-grid">
+      <div class="side">
+        <div class="k">[ PROOFS: VERIFIABLE ]</div>
+        Every coin powers a prover.<br>Every prover does real work.
+        <div class="rule"></div>
+      </div>
+      <figure class="mon free">
+        <div class="hud top"><span>ZKVM / PROOF FACTORY</span><span id="ghint">Drag to turn · tap the core</span></div>
+        <div id="globeBox">
+          <canvas id="glg" aria-hidden="true"></canvas>
+          <canvas id="gl" tabindex="0" aria-label="Interactive 3D zero-knowledge virtual machine. Drag or use arrow keys to turn it, plus and minus to zoom, Enter to send one job, T to tamper with the next result, and space to start or pause the job stream."></canvas>
+          <div class="glabels" id="glabels" aria-hidden="true"></div>
+          <div id="gtip" aria-hidden="true"></div>
+        </div>
+        <div class="hud bot"><span id="gevent">ZKVM IDLE · PICK A WORKLOAD</span><span class="sup2" id="gdone"></span></div>
+        <div class="chainstrip rackchips" role="group" aria-label="Pick a workload" id="wlChips"></div>
+        <div class="sliders">
+          <label class="sl">DEMAND <b id="vDem">—</b><input type="range" id="sDem" min="0" max="100" step="1" value="40"></label>
+          <label class="sl">PRICE <b id="vPrice">—</b><input type="range" id="sPrice" min="25" max="300" step="5" value="100"></label>
+          <label class="sl">PROVER COST <b id="vCost">—</b><input type="range" id="sCost" min="0.2" max="5" step="0.1" value="1.2"></label>
+          <label class="sl">BUYBACKS <b id="vBb">40%</b><input type="range" id="sBb" min="0" max="80" step="5" value="40"></label>
+        </div>
+        <div class="ctl" role="group" aria-label="Proof controls">
+          <button class="cbtn" id="cRun" aria-pressed="false">▶ STREAM</button>
+          <button class="cbtn" id="cOne">SEND 1 JOB</button>
+          <span class="cload">PROVERS <button class="cbtn" id="pMinus" aria-label="One fewer prover">−</button><b id="pCount" style="font-weight:400;color:var(--ink)">2</b><button class="cbtn" id="pPlus" aria-label="One more prover">+</button></span>
+          <span class="csep"></span>
+          <button class="cbtn warn" id="cTamper" aria-pressed="false">TAMPER RESULT</button>
+          <button class="cbtn warn" id="cBadIn" aria-pressed="false">BAD INPUT</button>
+          <span class="csep"></span>
+          <button class="cbtn" data-view="front" aria-pressed="false">FRONT</button><button class="cbtn" data-view="top" aria-pressed="false">TOP</button><button class="cbtn" data-view="auto" aria-pressed="true">AUTO</button>
+          <button class="cbtn" id="cZo" aria-label="Zoom out">−</button><button class="cbtn" id="cZi" aria-label="Zoom in">+</button><button class="cbtn" id="cReset">RESET</button>
+        </div>
+        <div class="econ">
+          <div><span>PROOFS GENERATED</span><b id="eG">0</b></div>
+          <div><span>VERIFIED</span><b class="ok" id="eV">0</b></div>
+          <div><span>REJECTED</span><b class="neg" id="eX">0</b></div>
+          <div><span>SUCCESS RATE</span><b id="eSR">—</b></div>
+          <div><span>REVENUE /HR</span><b id="eR">$0.00</b></div>
+          <div><span>PROVER COST /HR</span><b id="eC">$0.00</b></div>
+          <div><span>NET /HR</span><b id="eN">$0.00</b></div>
+          <div><span>BUYBACKS /HR</span><b id="eB">$0.00</b></div>
+          <div class="wide"><span style="white-space:nowrap" id="eState">IDLE</span><canvas id="spark" width="240" height="30" aria-hidden="true"></canvas></div>
+        </div>
+      </figure>
+      <div class="side r">
+        <div class="k">execute → prove → verify</div>
+        Check the proof,<br>not the operator.
+        <div class="rule"></div>
+      </div>
+    </div>
+    <div class="hero-sub">
+      <p>A verifiable computing business, as easy as a memecoin.</p>
+      <p>Launch a coin paired with its own zkVM. It runs jobs off-chain and returns a zero-knowledge proof that the work was done correctly, which anyone can verify on-chain.</p>
+    </div>
+    <div class="cta">
+      <a class="bz" href="#launch"><span class="pwr"></span>Launch a coin + zkVM</a>
+      <a class="ghost" href="#factory">How the proof factory works</a>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="provers">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="tag tag-line">zkVM agents</span>
+        <h2>Six provers to start.<span class="dim">Each one is a coin.</span></h2></div>
+      <p class="aside">Every zkVM agent specializes in one kind of verifiable work. Pick the task, and the agent proves every job it runs.</p>
+    </div>
+    <div class="tpl" id="tpl"></div>
+  </div>
+</section>
+
+<section class="sec" id="factory">
+  <div class="wrap">
+    <div class="flow">
+      <div>
+        <span class="tag tag-line">Proof factory</span>
+        <div class="sec-head" style="margin-bottom:20px"><h2>A ZK proving business.<span class="dim">No special hardware.</span></h2></div>
+        <p style="color:var(--muted)">A $ZKVM agent takes computation requests, routes them to compatible zkVM provers, generates cryptographic proofs and charges customers for each completed job.</p>
+        <p style="color:var(--muted)">After infrastructure and operating costs are paid, a share of net revenue buys back $ZKVM.</p>
+        <div class="metrics" aria-label="Every agent's public dashboard shows">
+          <span>Proofs generated + verified</span><span>Compute consumed</span><span>Revenue + expenses</span><span>Verification success rate</span><span>On-chain buybacks</span>
+        </div>
+      </div>
+      <div class="fchart" aria-label="Flow: a customer sends a job to the ZKVM agent, which routes it to a zkVM prover; the prover returns a proof; the proof is verified on Solana; fees pay costs, and net revenue funds buybacks.">
+        <div class="fbox you"><b>CUSTOMER</b><span>Sends a program + inputs</span></div>
+        <div class="fv"></div>
+        <div class="fbox"><b>$ZKVM AGENT</b><span>Routes the job</span></div>
+        <div class="fv"></div>
+        <div class="fbox"><b>zkVM PROVER</b><span>Executes and proves</span></div>
+        <div class="fv"></div>
+        <div class="fbox"><b>VERIFIED ON SOLANA</b><span>Anyone can check it</span></div>
+        <div class="frow">
+          <div class="fbox"><b>COSTS</b><span>Infrastructure + operations</span></div>
+          <div class="fbox done"><b>BUYBACKS</b><span>Share of net revenue</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="proofs">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="tag tag-line">What a proof proves</span>
+        <h2>Verifiable execution.<span class="dim">Precisely defined.</span></h2></div>
+      <p class="aside">Customers check cryptographic evidence instead of trusting the operator. Here is exactly what that evidence covers. Try TAMPER RESULT and BAD INPUT on the machine above to see both.</p>
+    </div>
+    <div class="proofgrid">
+      <div class="pcell"><div class="k ok">✓ PROVES</div><h3>The program ran correctly</h3><p>The output really came from running the specified program on the given inputs. A faked or altered result fails verification.</p></div>
+      <div class="pcell"><div class="k ok">✓ PROVES</div><h3>Without redoing the work</h3><p>The verifier checks a small proof instead of repeating the whole computation.</p></div>
+      <div class="pcell"><div class="k neg">✗ DOESN'T PROVE</div><h3>That the inputs were accurate</h3><p>Garbage in still gives a valid proof of garbage out. Input quality is a separate check.</p></div>
+      <div class="pcell"><div class="k neg">✗ NOT AUTOMATIC</div><h3>Privacy, or Solana verification</h3><p>Privacy depends on how the program is built, and on-chain checks need compatible verifier infrastructure on Solana.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="tag tag-line">How it works</span>
+        <h2>From coin to proving business<span class="dim">in six steps.</span></h2></div>
+      <p class="aside">Each step builds on the one before it.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num">01</div><h3>Launch a coin + zkVM</h3><p>Create a token paired with a dedicated verifiable computing agent.</p></div>
+      <div class="step"><div class="num">02</div><h3>Choose a task</h3><p>AI inference verification, private computation, ZK proof generation, blockchain scaling or verifiable automation.</p></div>
+      <div class="step"><div class="num">03</div><h3>Off-chain execution</h3><p>Agents run each job on compatible zkVM infrastructure.</p></div>
+      <div class="step"><div class="num">04</div><h3>Proof generation</h3><p>Every completed job produces a zero-knowledge proof of correct execution, so no one has to repeat the computation to trust it.</p></div>
+      <div class="step"><div class="num">05</div><h3>Proof marketplace</h3><p>Developers and protocols pay agents to generate and verify proofs.</p></div>
+      <div class="step"><div class="num">06</div><h3>Revenue-powered buybacks</h3><p>A share of realized net service revenue buys back the agent's token.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="market">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="tag tag-line">Agent dashboards</span>
+        <h2>Every prover's record,<span class="dim">in public.</span></h2></div>
+      <p class="aside">Proofs generated and verified, compute consumed, revenue and expenses, verification success rate and on-chain buybacks for every agent.</p>
+    </div>
+    <div class="market">
+      <div class="tscroll">
+        <table class="lb" style="min-width:900px">
+          <thead><tr><th scope="col">#</th><th scope="col">Agent</th><th scope="col">Task</th><th scope="col">Proofs</th><th scope="col">Verified</th><th scope="col">Success</th><th scope="col">Compute</th><th scope="col">Revenue</th><th scope="col">Expenses</th><th scope="col">Bought back</th></tr></thead>
+          <tbody><tr><td colspan="10" class="emptyrow">No zkVM agents yet. <a href="#launch">Launch the first one</a>.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="crt">
+        <div class="glass"><div class="scr">
+          <div class="hdr"><span>AGENT DASHBOARD</span><span>—</span></div>
+          <div class="empty"><div><div class="big srb">&gt; 0 proofs yet_</div><div>Dashboards appear here once agents launch.</div></div></div>
+        </div></div>
+        <span class="pled"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="launch">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="tag tag-line">Launchpad</span>
+        <h2>Launch a coin.<span class="dim">Give it a prover.</span></h2></div>
+      <p class="aside">Pick a task and a zkVM framework, set your price and prover budget, and decide how much net revenue buys back the coin. Your agent takes shape on the right.</p>
+    </div>
+    <div class="launch">
+      <form class="panel" id="lform" novalidate>
+        <div class="two">
+          <div class="field"><label for="lname">Agent name</label><input class="inp" id="lname" placeholder="Agent name" maxlength="32" autocomplete="off"></div>
+          <div class="field"><label for="ltk">Ticker</label><input class="inp" id="ltk" placeholder="TICKER" maxlength="10" autocomplete="off" style="text-transform:uppercase"></div>
+        </div>
+        <div class="two">
+          <div class="field"><label for="ltask">Task</label><select class="inp" id="ltask"></select></div>
+          <div class="field"><label for="lfw">zkVM framework</label><select class="inp" id="lfw"><option>RISC Zero</option><option>SP1</option></select></div>
+        </div>
+        <div class="field"><label for="lprice">Price per proof (USDC)</label><input class="inp" id="lprice" placeholder="Price" inputmode="decimal" autocomplete="off"></div>
+        <div class="field"><label for="lbud">Daily prover budget <span class="rv" id="vbud">50 USDC</span></label><input type="range" id="lbud" min="5" max="5000" step="5" value="50"></div>
+        <div class="field"><label for="lbb">Net revenue to buybacks <span class="rv" id="vbb">40%</span></label><input type="range" id="lbb" min="0" max="80" step="5" value="40"></div>
+        <button class="bz full" type="submit" id="lbtn"><span class="pwr"></span><span id="lbtnLabel">Connect wallet to launch</span></button>
+        <div class="sigbox" id="sigbox" aria-live="polite"></div>
+      </form>
+      <div class="crt pv">
+        <div class="glass"><div class="scr">
+          <div class="hdr"><span>YOUR zkVM</span><span>ZKVM</span></div>
+          <div class="coin">
+            <div class="glyph" id="pvGlyph">?</div>
+            <div><div class="tk srb" id="pvTk">$TICKER</div><div id="pvName" style="color:var(--scr-dim)">Unnamed agent</div></div>
+          </div>
+          <div class="rows">
+            <div class="row"><span>Task</span><span id="pvTask">—</span></div>
+            <div class="row"><span>Framework</span><span id="pvFw">RISC Zero</span></div>
+            <div class="row"><span>Price per proof</span><span id="pvPrice">—</span></div>
+            <div class="row"><span>Daily prover budget</span><span id="pvBud">50 USDC</span></div>
+            <div class="row"><span>Net revenue to buybacks</span><span id="pvBb">40%</span></div>
+          </div>
+          <div style="margin-top:14px;color:var(--scr-dim)">Customers: <span id="pvCust" style="color:var(--scr-ink)">—</span></div>
+        </div></div>
+        <span class="pled"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="flywheel">
+  <div class="wrap">
+    <div class="fly">
+      <div>
+        <span class="tag tag-line">$ZKVM token flywheel</span>
+        <div class="sec-head" style="margin-bottom:20px"><h2>More provers.<span class="dim">More proofs. Repeat.</span></h2></div>
+        <p>Each new zkVM agent and coin takes on more verifiable computation. More tasks mean more proof generation and service fees, net revenue funds $ZKVM buybacks, and that draws in more developers and proving networks.</p>
+        <h3 style="font-weight:500;font-size:20px;margin:36px 0 0">Where revenue comes from</h3>
+        <ul class="rev">
+          <li><span>Agent launch fees</span><span>Paid once per launch</span></li>
+          <li><span>Proof generation fees</span><span>On every proof produced</span></li>
+          <li><span>Proving marketplace commissions</span><span>On jobs routed to provers</span></li>
+          <li><span>Premium verification services</span><span>Faster, priority verification</span></li>
+          <li><span>$ZKVM buybacks</span><span>Funded from net protocol revenue</span></li>
+        </ul>
+      </div>
+      <svg viewBox="-80 -20 560 440" role="img" aria-label="Flywheel: more zkVM agents and coins launched, more verifiable computation tasks, more proof generation and service fees, net revenue funds $ZKVM buybacks, more developers and proving networks, then repeat.">
+        <path id="ringPath" class="ring" style="stroke:var(--acc)" d="M200,40 a160,160 0 1,1 -0.01,0"/>
+        <g id="nodes"></g>
+        <text class="ctr" x="200" y="208" text-anchor="middle" style="fill:var(--acc)">$ZKVM</text>
+        <text class="ctr2" x="200" y="232" text-anchor="middle">the cycle repeats ↻</text>
+        <rect width="12" height="12" x="-6" y="-6" style="fill:var(--acc)" id="flyDot"><animateMotion dur="9s" repeatCount="indefinite"><mpath href="#ringPath"/></animateMotion></rect>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="different">
+  <div class="wrap">
+    <span class="tag tag-line">What makes it different</span>
+    <p class="big-quote">Traditional launchpads create tokens.<span class="dim"> ZKVM creates tokenized verifiable computing businesses.</span></p>
+    <p class="lede">Instead of a coin built on speculation alone, every ZKVM coin is tied to a cryptographic proving service.</p>
+    <div class="vs" role="table" aria-label="ZKVM agent compared with an ordinary compute service">
+      <div class="h" role="columnheader"></div><div class="h o" role="columnheader">ZKVM agent</div><div class="h" role="columnheader">Ordinary compute service</div>
+      <div class="rl" role="rowheader">Why you believe the result</div><div class="ov">A proof you can check yourself</div><div class="wv">You trust the operator</div>
+      <div class="rl" role="rowheader">Checking the work</div><div class="ov">Verify a small proof</div><div class="wv">Redo the whole computation</div>
+      <div class="rl" role="rowheader">A faked result</div><div class="ov">Fails verification</div><div class="wv">Often goes unnoticed</div>
+      <div class="rl" role="rowheader">What the coin represents</div><div class="ov">A prover with a public record</div><div class="wv">Usually just a ticker</div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="roadmap">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="tag tag-line">Launch strategy</span><h2>Proven frameworks first.<span class="dim">Open markets next.</span></h2></div>
+    </div>
+    <div class="road">
+      <div><div class="ph now">● Phase 1</div><h3>RISC Zero + SP1</h3><p>Established zkVM frameworks with predefined verifiable workloads, connected to Solana payments and token launches.</p></div>
+      <div><div class="ph">○ Phase 2</div><h3>Custom programs</h3><p>Customers bring their own programs to prove.</p></div>
+      <div><div class="ph">○ Phase 3</div><h3>Open proving markets</h3><p>Decentralized prover networks and automated proof marketplaces.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="close">
+  <div class="wrap">
+    <span class="tag tag-line">Core vision</span>
+    <h2>A verifiable computing business,<span class="dim"> as easy to launch as a memecoin.</span></h2>
+    <div class="vision3">Every coin powers a prover.<br>Every prover performs real work.<br>Every completed job can generate measurable revenue.</div>
+    <div class="cta" style="margin-top:40px">
+      <a class="bz" href="#launch"><span class="pwr"></span>Launch a coin + zkVM</a>
+      <a class="ghost" href="#top">Back to the top ↑</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="tag">Don't trust. Verify.</span>
+    <p>RISC Zero and SP1 are independent open-source projects; ZKVM integrates them and is not affiliated with their teams. Agent revenue and buybacks depend on real customer demand. Nothing on this page is financial advice.</p>
+  </div>
+</footer>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+  <div class="crt">
+    <button class="mclose" id="mclose" aria-label="Close">[x]</button>
+    <div class="glass"><div class="scr">
+      <h3 id="mtitle" class="srb">Connect wallet_</h3>
+      <div class="sub">Choose a Solana wallet.</div>
+      <div id="wlistSol"></div>
+      <div class="merr" id="merr" aria-live="polite"></div>
+    </div></div>
+    <span class="pled"></span>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmt=(n,d=2)=>n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),2200)}
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+function b58(bytes){const A='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';const d=[];
+  for(const b of bytes){let c=b;for(let j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0}while(c){d.push(c%58);c=(c/58)|0}}
+  let s='';for(const b of bytes){if(b===0)s+='1';else break}for(let i=d.length-1;i>=0;i--)s+=A[d[i]];return s}
+
+/* ---------- workloads ---------- */
+const WL=[
+  {tk:'PROVE',task:'General-purpose ZK proof generation',cust:'DEVELOPERS',sec:2.0,price:.05,cost:1.2},
+  {tk:'VERIFY',task:'Verifiable AI inference',cust:'AI APPS',sec:3.5,price:.09,cost:1.6},
+  {tk:'PRIVATE',task:'Privacy-preserving computation',cust:'PRIVATE APPS',sec:2.5,price:.07,cost:1.3},
+  {tk:'ROLLUP',task:'Rollup execution and proof generation',cust:'ROLLUPS',sec:4.0,price:.12,cost:2.0},
+  {tk:'ORACLE',task:'Verifiable off-chain data processing',cust:'PROTOCOLS',sec:1.5,price:.03,cost:1.0},
+  {tk:'COMPUTE',task:'Outsourced verifiable computation',cust:'DEVELOPERS',sec:3.0,price:.08,cost:1.5}
+];
+$('#wlChips').innerHTML=WL.map((w,i)=>`<button class="chip" data-i="${i}" aria-pressed="false">$${w.tk}</button>`).join('');
+$('#tpl').innerHTML=WL.map((w,i)=>`<div class="tcard"><div class="tk">$${w.tk}</div><p>${w.task}</p><div class="hires">Customers: ${w.cust.charAt(0)+w.cust.slice(1).toLowerCase()}</div><button class="ghost" data-run="${i}">Prove on the zkVM ↑</button></div>`).join('');
+
+/* ---------- wallet (Solana SDK) ---------- */
+const W3=window.solanaWeb3||null;
+const SOL=[
+  {id:'phantom',name:'Phantom',url:'https://phantom.app/',get:()=>(window.phantom&&window.phantom.solana&&window.phantom.solana.isPhantom)?window.phantom.solana:(window.solana&&window.solana.isPhantom?window.solana:null)},
+  {id:'solflare',name:'Solflare',url:'https://solflare.com/',get:()=>(window.solflare&&window.solflare.isSolflare)?window.solflare:null},
+  {id:'backpack',name:'Backpack',url:'https://backpack.app/',get:()=>(window.backpack&&window.backpack.isBackpack)?window.backpack:null}
+];
+const wallet={provider:null,meta:null,addr:null};
+const short=a=>a.slice(0,4)+'…'+a.slice(-4);
+function renderWallet(){
+  const on=!!wallet.addr;$('#walletBtn').classList.toggle('on',on);
+  $('#walletLabel').textContent=on?short(wallet.addr):'Connect wallet';
+  if(on){$('#waddr').textContent=wallet.addr;$('#wname').textContent=wallet.meta.name}else $('#wmenu').classList.remove('open');
+  $('#lbtnLabel').textContent=on?'Sign launch request':'Connect wallet to launch';
+}
+async function loadBalance(){
+  const el=$('#wbal');el.textContent='Checking balance…';
+  try{if(!W3)throw 0;const conn=new W3.Connection(W3.clusterApiUrl('mainnet-beta'),'confirmed');
+    const lam=await Promise.race([conn.getBalance(new W3.PublicKey(wallet.addr)),new Promise((_,r)=>setTimeout(()=>r(0),6000))]);
+    el.textContent=fmt(lam/W3.LAMPORTS_PER_SOL,4)+' SOL';}catch(e){el.textContent='Balance unavailable right now.'}
+}
+function onDisconnect(){wallet.provider=wallet.meta=wallet.addr=null;store.del('zkvm.wallet');renderWallet()}
+async function connect(meta,silent){
+  const p=meta.get();
+  if(!p){if(!silent)$('#merr').textContent=meta.name+' isn\u2019t installed in this browser.';return}
+  try{
+    const res=await p.connect(silent?{onlyIfTrusted:true}:undefined);
+    const raw=(res&&res.publicKey)||p.publicKey;if(!raw)throw new Error('No public key returned');
+    wallet.addr=W3?new W3.PublicKey(raw.toString()).toBase58():raw.toString();wallet.provider=p;wallet.meta=meta;store.set('zkvm.wallet',meta.id);
+    if(p.on){try{p.on('disconnect',onDisconnect);p.on('accountChanged',pk=>{if(pk){wallet.addr=pk.toString();renderWallet();loadBalance()}else onDisconnect()})}catch(e){}}
+    renderWallet();closeModal();if(!silent)toast('Connected '+short(wallet.addr));loadBalance();
+  }catch(e){if(!silent)$('#merr').textContent=(e&&e.code===4001)?'Connection request was rejected in the wallet.':'Couldn\u2019t connect: '+((e&&e.message)||'unknown error')}
+}
+function openModal(){
+  const ls=$('#wlistSol');ls.innerHTML='';$('#merr').textContent='';
+  SOL.forEach(m=>{if(m.get()){const b=document.createElement('button');b.className='wopt det';b.innerHTML='<span>'+m.name+'</span><small>detected</small>';b.onclick=()=>connect(m,false);ls.appendChild(b)}
+    else{const a=document.createElement('a');a.className='wopt';a.href=m.url;a.target='_blank';a.rel='noopener noreferrer';a.innerHTML='<span>'+m.name+'</span><small>install ↗</small>';ls.appendChild(a)}});
+  if(!SOL.some(m=>m.get()))$('#merr').textContent='No Solana wallet found. Install one, or open this page in a browser with your wallet extension enabled.';
+  $('#modal').classList.add('open');setTimeout(()=>{const f=$('#modal').querySelector('.wopt');if(f)f.focus()},30);
+}
+function closeModal(){$('#modal').classList.remove('open')}
+$('#mclose').onclick=closeModal;
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();$('#wmenu').classList.remove('open')}});
+$('#walletBtn').onclick=e=>{e.stopPropagation();if(wallet.addr)$('#wmenu').classList.toggle('open');else openModal()};
+document.addEventListener('click',e=>{if(!e.target.closest('.wallet-wrap'))$('#wmenu').classList.remove('open')});
+$('#wcopy').onclick=async()=>{try{await navigator.clipboard.writeText(wallet.addr);toast('Address copied')}catch(e){toast('Copy failed. Select the address instead.')}};
+$('#wdisc').onclick=async()=>{try{if(wallet.provider&&wallet.provider.disconnect)await wallet.provider.disconnect()}catch(e){}onDisconnect();toast('Wallet disconnected')};
+window.addEventListener('load',()=>{const m=SOL.find(w=>w.id===store.get('zkvm.wallet'));if(m)setTimeout(()=>connect(m,true),400)});
+
+
+async function signText(msg){
+  const p=wallet.provider;
+  if(!p||!p.signMessage)throw new Error(wallet.meta.name+' doesn\u2019t support message signing');
+  const r=await p.signMessage(new TextEncoder().encode(msg),'utf8');
+  return b58(new Uint8Array(r&&r.signature?r.signature:r));
+}
+
+/* ---------- 3D zkVM (pixel-rendered, interactive) ---------- */
+const ZK=(function(){
+  const glass=$('#globeBox'),cv=$('#gl'),gv=$('#glg'),ctx=cv.getContext('2d'),gctx=gv.getContext('2d');
+  const evt=$('#gevent'),tip=$('#gtip'),sp=$('#spark'),spx=sp.getContext('2d');
+  const GOLD='#FFD60A',GOLDD='#6E5C08',GOLDH='#FFF1A0',BEIGE='#E6DED2',RED='#FF5A4E',OK='#7CF07C';
+  let PX=3,W=0,H=0,cx=0,cy=0,scale=0,zoom=1;const D=8,MAXP=4;
+  let base=-.4,yaw=-.4,pitch=.38,vYaw=0,vPitch=0,drag=null,running=true,t0=performance.now(),sway=!reduce,target=null,lastNow=performance.now();
+  let wl=-1,on=false,nP=2,demandPct=40,pricePct=100,cost=1.2,bb=.4,phase=0,coreSpin=0,coreLit=0,verFlash=0,verOk=true,acc=0,histT=0;
+  let tamperNext=false,badNext=false,gen=0,ver=0,rej=0;
+  const pBusy=[null,null,null,null],pSpin=[0,0,0,0],pJobs=[0,0,0,0];
+  let jobs=[],marks=[],hist=[],rects={},hover=null,ptr=null;
+  const CUST=[-2.55,-.35,0],VER=[2.55,-.35,0],CORE=[0,.05,0];
+  const labEl=$('#glabels');const LAB=[0,1,2].map(()=>{const s=document.createElement('span');s.className='glab';s.style.color='var(--acc)';labEl.appendChild(s);return s});
+  const Wk=()=>WL[wl<0?0:wl];
+  const demand=()=>demandPct/100*(60/Wk().sec)*MAXP*1.2;
+  const capacity=()=>nP*60/Wk().sec;
+  const price=()=>Wk().price*pricePct/100;
+  function resize(){const r=glass.getBoundingClientRect();PX=r.width<520?2:3;W=Math.max(90,Math.round(r.width/PX));H=Math.max(70,Math.round(r.height/PX));
+    [cv,gv].forEach(c=>{c.width=W;c.height=H});cx=W/2;cy=H/2+H*.03;scale=Math.min((W/2-6)*(D-1.6)/2.75,(H/2-6)*(D-1.6)/1.1)}
+  function rot(p){const [x,y,z]=p,cY=Math.cos(yaw),sY=Math.sin(yaw),x1=x*cY+z*sY,z1=-x*sY+z*cY,cP=Math.cos(pitch),sP=Math.sin(pitch);return [x1,y*cP-z1*sP,y*sP+z1*cP]}
+  function proj(w){const r=rot(w),k=scale*zoom/(D-r[2]);return {x:cx+r[0]*k,y:cy-r[1]*k,z:r[2],k}}
+  function line(a,b,col,th,dash){let x0=Math.round(a.x),y0=Math.round(a.y);const x1=Math.round(b.x),y1=Math.round(b.y);
+    const dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx+dy,n=0;ctx.fillStyle=col;const t=th||1;
+    for(;;){if(!dash||(n++%dash)===0)ctx.fillRect(x0,y0,t,t);if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>=dy){e+=dy;x0+=sx}if(e2<=dx){e+=dx;y0+=sy}}}
+  function dot(w,col,s){const p=proj(w);ctx.fillStyle=col;const q=s||2;ctx.fillRect(Math.round(p.x-q/2),Math.round(p.y-q/2),q,q);return p}
+  const E=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  function cube(c,h,spin,col,dim,th,layers){const cs=Math.cos(spin),sn=Math.sin(spin);
+    const V=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].map(v=>{const x=v[0]*h,z=v[2]*h;return [c[0]+x*cs+z*sn,c[1]+v[1]*h,c[2]-x*sn+z*cs]});
+    const P=V.map(proj);const cz=rot(c)[2];
+    E.forEach(([a,b])=>{const back=(P[a].z+P[b].z)/2<cz-.0001;line(P[a],P[b],back?dim:col,back?1:th)});
+    if(layers){[-1/3,1/3].forEach(f=>{const y=c[1]+f*h;const q=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>{const x=u*h,z=v*h;return proj([c[0]+x*cs+z*sn,y,c[2]-x*sn+z*cs])});for(let j=0;j<4;j++){const back=(q[j].z+q[(j+1)%4].z)/2<cz;line(q[j],q[(j+1)%4],back?dim:layers,back?1:th)}})}
+    let bb=[1e9,1e9,-1e9,-1e9];P.forEach(p=>{bb[0]=Math.min(bb[0],p.x);bb[1]=Math.min(bb[1],p.y);bb[2]=Math.max(bb[2],p.x);bb[3]=Math.max(bb[3],p.y)});return bb}
+  function ringPt(a,r){const x=Math.cos(a)*r,z=Math.sin(a)*r;const t=.32;return [x,-.15+z*Math.sin(t)*-.4,z*Math.cos(t)]}
+  const pPos=i=>ringPt(phase+i/nP*6.283,1.45);
+  const lerp=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t+Math.sin(t*Math.PI)*.25,a[2]+(b[2]-a[2])*t];
+  function newJob(){if(wl<0)pick(0,true);const j={ph:'in',t:0,p:-1,tamper:tamperNext,bad:badNext};tamperNext=badNext=false;$('#cTamper').setAttribute('aria-pressed','false');$('#cBadIn').setAttribute('aria-pressed','false');jobs.push(j)}
+  function freeProver(){for(let i=0;i<nP;i++)if(!pBusy[i])return i;return -1}
+  function step(dt){
+    const spd=reduce?4:1;
+    if(on&&jobs.length<60){acc+=dt*demand()/60;while(acc>=1){acc--;newJob()}}
+    for(let i=jobs.length-1;i>=0;i--){const j=jobs[i];
+      if(j.ph==='in'){j.t+=dt*spd/.9;if(j.t>=1){j.ph='wait';j.t=0;coreLit=1}}
+      else if(j.ph==='wait'){const p=freeProver();if(p>=0){j.p=p;pBusy[p]=j;j.ph='route';j.t=0}}
+      else if(j.ph==='route'){j.t+=dt*spd/.5;if(j.t>=1){j.ph='prove';j.t=0}}
+      else if(j.ph==='prove'){j.t+=dt*spd/Wk().sec;if(j.t>=1){j.ph='proof';j.t=0;gen++;pJobs[j.p]++;pBusy[j.p]=null}}
+      else if(j.ph==='proof'){j.t+=dt*spd/.9;if(j.t>=1){jobs.splice(i,1);verFlash=1;
+        if(j.tamper){rej++;verOk=false;marks.push({w:VER,txt:'✗',col:RED,life:1});evt.textContent='✗ REJECTED · RESULT DIDN\u2019T MATCH THE PROGRAM · NOT PAID'}
+        else{ver++;verOk=true;marks.push({w:VER,txt:'✓',col:j.bad?GOLD:OK,life:1});if(j.bad)evt.textContent='✓ VERIFIED · BUT THE INPUT WAS WRONG · PROOFS DON\u2019T CHECK INPUTS';else if(!on)evt.textContent='✓ PROOF VERIFIED ON-CHAIN'}}}
+    }
+    for(let i=0;i<MAXP;i++)pSpin[i]+=dt*(pBusy[i]?3:.4)*(reduce?.2:1);
+    if(!reduce)phase+=dt*.12;coreSpin+=dt*(reduce?0:.25);coreLit=Math.max(0,coreLit-dt*1.5);verFlash=Math.max(0,verFlash-dt*1.2);
+    for(let i=marks.length-1;i>=0;i--){marks[i].life-=dt*.7;if(marks[i].life<=0)marks.splice(i,1)}
+    const served=on?Math.min(demand(),capacity()):0;const rev=served*60*price(),c=(on||jobs.length)?nP*cost:0,net=rev-c;
+    histT+=dt;if(histT>.25&&on){histT=0;hist.push(net);if(hist.length>120)hist.shift()}
+    return {rev,c,net,served};
+  }
+  let lastUI=0;const money=v=>(v<0?'−':'')+'$'+Math.abs(v).toFixed(Math.abs(v)<10?2:0);
+  function ui(s,now){if(now-lastUI<120)return;lastUI=now;
+    const dm=demand(),pr=price();$('#vDem').textContent=(dm<10?dm.toFixed(1):Math.round(dm))+'/min';$('#vPrice').textContent='$'+pr.toFixed(pr<.1?3:2);$('#vCost').textContent='$'+cost.toFixed(1)+'/hr';
+    $('#eG').textContent=gen;$('#eV').textContent=ver;$('#eX').textContent=rej;$('#eSR').textContent=(ver+rej)?Math.round(ver/(ver+rej)*100)+'%':'—';
+    $('#eR').textContent=money(s.rev);$('#eC').textContent=money(s.c);const n=$('#eN');n.textContent=money(s.net);n.className=s.net>.005?'pos':s.net<-.005?'neg':'';$('#eB').textContent=money(Math.max(0,s.net)*bb);
+    const q=jobs.filter(j=>j.ph==='wait').length;
+    let st;if(!on&&!jobs.length)st=wl<0?'IDLE':'PAUSED';else if(q>4)st='QUEUE BUILDING · ADD PROVERS';else if(s.net<-.005)st='LOSING MONEY · RAISE PRICE OR CUT PROVERS';else if(on)st='PROFITABLE · BUYBACKS FUNDED';else st='PROVING';
+    $('#eState').textContent=st;$('#eState').className=st.startsWith('PROFIT')?'pos':(st.startsWith('LOSING')||st.startsWith('QUEUE'))?'neg':'';
+    $('#gdone').textContent=(wl>=0?'$'+Wk().tk+' · ':'')+nP+' PROVERS'+(q?' · QUEUE '+q:'');
+    const w=sp.width,h=sp.height;spx.clearRect(0,0,w,h);spx.fillStyle='rgba(128,128,128,.35)';spx.fillRect(0,h/2,w,1);
+    if(hist.length>1){const m=Math.max(.01,...hist.map(Math.abs));hist.forEach((v,i)=>{const x=Math.round(i/119*(w-1)),y=Math.round(h/2-v/m*(h/2-2));spx.fillStyle=v<0?RED:GOLD;spx.fillRect(x,Math.min(y,h/2),2,Math.max(1,Math.abs(y-h/2)))})}}
+  function node(w,id,col){const p=proj(w);const s=Math.max(5,Math.round(p.k*.2));rects[id]=[p.x-s/2-3,p.y-s/2-3,p.x+s/2+3,p.y+s/2+3];
+    ctx.fillStyle=hover===id?GOLDH:BEIGE;ctx.fillRect(Math.round(p.x-s/2)-1,Math.round(p.y-s/2)-1,s+2,s+2);ctx.fillStyle=col;ctx.fillRect(Math.round(p.x-s/2),Math.round(p.y-s/2),s,s)}
+  function frame(now){
+    if(!running)return;
+    const dt=Math.min(.06,(now-lastNow)/1000);lastNow=now;const t=(now-t0)/1000;
+    if(target){base+=(target.yaw-base)*.12;pitch+=(target.pitch-pitch)*.12;if(Math.abs(target.yaw-base)<.002&&Math.abs(target.pitch-pitch)<.002)target=null}
+    if(!drag){if(Math.abs(vYaw)>.0005||Math.abs(vPitch)>.0005){base+=vYaw;pitch+=vPitch;vYaw*=.93;vPitch*=.92}yaw=base+(sway?Math.sin(t*.3)*.35:0)}
+    pitch=Math.max(-.2,Math.min(1.25,pitch));
+    const s=step(dt);
+    ctx.clearRect(0,0,W,H);rects={};
+    // sparkle dust like the logo
+    for(let i=0;i<14;i++){const a=i*2.4+phase*.5,r=1.05+((i*37)%10)/25;const w=[Math.cos(a)*r,.05+Math.sin(i*1.7)*.75,Math.sin(a)*r];if((Math.floor(now/500)+i)%4)dot(w,GOLDD,2)}
+    // ring
+    let prev=proj(ringPt(0,1.45));for(let k=1;k<=72;k++){const p=proj(ringPt(k/72*6.283,1.45));line(prev,p,(prev.z+p.z)/2<0?'rgba(255,214,10,.25)':GOLDD,1,3);prev=p}
+    const items=[];
+    const cz=rot(CORE)[2];
+    items.push({z:cz,f:()=>{const lit=coreLit>0||jobs.some(j=>j.ph==='route'||j.ph==='wait');rects.core=cube(CORE,.42,coreSpin,hover==='core'?GOLDH:(lit?GOLDH:GOLD),GOLDD,2,lit?GOLDH:GOLD)}});
+    for(let i=0;i<nP;i++){const c=pPos(i);items.push({z:rot(c)[2],f:()=>{const busy=pBusy[i];rects['p'+i]=cube(c,.17,pSpin[i],hover==='p'+i||busy?GOLDH:GOLD,GOLDD,busy?2:1);
+      if(busy){const pr=Math.min(1,busy.t);const n=12;for(let k=0;k<n;k++){const a=k/n*6.283;const w=[c[0]+Math.cos(a)*.28,c[1]+Math.sin(a)*.28,c[2]];dot(w,k/n<pr?GOLDH:'rgba(255,214,10,.2)',2)}}}})}
+    jobs.forEach(j=>{let w=null,col=GOLD,sz=2;
+      if(j.ph==='in'){w=lerp(CUST,CORE,j.t);col=j.bad?'#FF9A3D':BEIGE;sz=3}
+      else if(j.ph==='wait'){const k=jobs.filter(x=>x.ph==='wait').indexOf(j);w=[CORE[0]-.62-k*.09,CORE[1]+.55,0];col=BEIGE}
+      else if(j.ph==='route'){w=lerp(CORE,pPos(j.p),j.t);col=GOLD}
+      else if(j.ph==='proof'){w=lerp(pPos(j.p),VER,j.t);col=GOLDH;sz=4}
+      if(w)items.push({z:rot(w)[2]+.05,f:()=>{const p=proj(w);const q=Math.max(sz,Math.round(p.k*.05*sz/2));ctx.fillStyle=col;ctx.fillRect(Math.round(p.x-q/2),Math.round(p.y-q/2),q,q);if(j.ph==='proof'){ctx.fillStyle='#0A0904';ctx.fillRect(Math.round(p.x)-0,Math.round(p.y)-0,1,1)}}})});
+    items.push({z:rot(CUST)[2],f:()=>node(CUST,'cust',on?GOLD:'#2a2610')});
+    items.push({z:rot(VER)[2],f:()=>node(VER,'ver',verFlash>0?(verOk?OK:RED):'#2a2610')});
+    items.sort((a,b)=>a.z-b.z).forEach(i=>i.f());
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    marks.forEach(m=>{const p=proj(m.w);ctx.globalAlpha=Math.min(1,m.life*1.5);ctx.fillStyle=m.col;ctx.font=`${Math.max(10,Math.round(p.k*.3))}px "VT323",monospace`;ctx.fillText(m.txt,Math.round(p.x),Math.round(p.y-p.k*.25-(1-m.life)*10));ctx.globalAlpha=1});
+    const narrow=W*PX<460;const wk=wl>=0?Wk():null;
+    [[CUST,narrow?'JOBS IN':(wk?wk.cust:'CUSTOMERS')+' → JOBS',0,.14],[VER,narrow?'VERIFIER':'SOLANA VERIFIER',1,.14],[[0,-.5,0],wk?'$'+wk.tk+' AGENT':'zkVM AGENT',2,.1]].forEach(([w,txt,i,off])=>{const p=proj(w),el=LAB[i];el.textContent=txt;
+      const half=el.offsetWidth/2;let x=p.x*PX-half;x=Math.max(4,Math.min(W*PX-el.offsetWidth-4,x));el.style.transform=`translate(${Math.round(x)}px,${Math.round(p.y*PX+p.k*off*PX+6)}px)`});
+    ui(s,now);if(ptr)updateTip();
+    gctx.clearRect(0,0,W,H);gctx.drawImage(cv,0,0);
+    requestAnimationFrame(frame);
+  }
+  function hitAt(x,y){for(const id of ['cust','ver',...[...Array(nP).keys()].map(i=>'p'+i),'core']){const r=rects[id];if(r&&x>=r[0]&&x<=r[2]&&y>=r[1]&&y<=r[3])return id}return null}
+  function tipText(id){if(id==='core')return 'zkVM AGENT · ROUTES JOBS TO PROVERS · TAP TO SEND A JOB';if(id==='cust')return (wl>=0?Wk().cust:'CUSTOMERS')+' · SEND PROGRAMS + INPUTS · '+$('#vDem').textContent;
+    if(id==='ver')return 'SOLANA VERIFIER · '+ver+' VERIFIED · '+rej+' REJECTED';const i=+id.slice(1);return 'PROVER '+(i+1)+' · '+(pBusy[i]?'PROVING '+Math.round(pBusy[i].t*100)+'%':'IDLE')+' · '+pJobs[i]+' PROOFS'}
+  function updateTip(){const h=hitAt(ptr.x,ptr.y);hover=h;cv.style.cursor=h?'pointer':(drag?'grabbing':'grab');if(!h){tip.style.opacity=0;return}
+    tip.textContent=tipText(h);tip.style.opacity=1;const tx=Math.min(ptr.x*PX+14,W*PX-tip.offsetWidth-4),ty=Math.max(4,ptr.y*PX-30);tip.style.transform=`translate(${Math.round(tx)}px,${Math.round(ty)}px)`}
+  function sendOne(){newJob();evt.textContent=(tamperNext?'':'')+'JOB SENT · $'+Wk().tk}
+  function at(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)/PX,y:(e.clientY-r.top)/PX}}
+  cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,m:0};cv.setPointerCapture(e.pointerId);base=yaw;target=null});
+  cv.addEventListener('pointermove',e=>{ptr=at(e);if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.m+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;if(drag.m<5)return;yaw+=dx*.008;base=yaw;pitch+=dy*.006;vYaw=dx*.0012;vPitch=dy*.0008});
+  cv.addEventListener('pointerup',e=>{const p=at(e);if(drag&&drag.m<6){const h=hitAt(p.x,p.y);if(h==='core'||h==='cust')sendOne();else if(h==='ver')evt.textContent=ver+' VERIFIED · '+rej+' REJECTED';else if(h&&h[0]==='p')evt.textContent='PROVER '+(+h.slice(1)+1)+' · '+pJobs[+h.slice(1)]+' PROOFS'}drag=null;t0=performance.now()});
+  cv.addEventListener('pointerleave',()=>{ptr=null;hover=null;tip.style.opacity=0});
+  cv.addEventListener('keydown',e=>{const k=e.key;let hit=true;
+    if(k==='ArrowLeft'){base-=.15;sway=false}else if(k==='ArrowRight'){base+=.15;sway=false}else if(k==='ArrowUp')pitch-=.1;else if(k==='ArrowDown')pitch+=.1;
+    else if(k==='+'||k==='=')zoom=Math.min(1.7,zoom+.15);else if(k==='-')zoom=Math.max(.7,zoom-.15);else if(k==='Enter')sendOne();else if(k==='t'||k==='T')$('#cTamper').click();else if(k===' ')setRun(!on);else hit=false;if(hit){e.preventDefault();syncView()}});
+  function markChips(i){document.querySelectorAll('.chip[data-i]').forEach(c=>c.setAttribute('aria-pressed',+c.dataset.i===i))}
+  function setRun(v){on=v;if(on&&wl<0)pick(0,true);const b=$('#cRun');b.setAttribute('aria-pressed',on);b.textContent=on?'■ PAUSE':'▶ STREAM';evt.textContent=on?'$'+Wk().tk+' · '+Wk().task.toUpperCase():(wl>=0?'$'+Wk().tk+' · PAUSED':'ZKVM IDLE · PICK A WORKLOAD')}
+  function pick(i,silent){wl=i;markChips(i);cost=Wk().cost;$('#sCost').value=cost;pricePct=100;$('#sPrice').value=100;hist=[];if(!silent){if(!on)setRun(true);else evt.textContent='$'+Wk().tk+' · '+Wk().task.toUpperCase()}}
+  function setP(n){nP=Math.max(1,Math.min(MAXP,n));$('#pCount').textContent=nP;for(let i=nP;i<MAXP;i++){if(pBusy[i]){pBusy[i].ph='wait';pBusy[i]=null}}evt.textContent=nP+(nP>1?' PROVERS':' PROVER')+' ONLINE'}
+  $('#sDem').addEventListener('input',e=>{demandPct=+e.target.value});
+  $('#sPrice').addEventListener('input',e=>{pricePct=+e.target.value});
+  $('#sCost').addEventListener('input',e=>{cost=+e.target.value});
+  $('#sBb').addEventListener('input',e=>{bb=+e.target.value/100;$('#vBb').textContent=e.target.value+'%'});
+  $('#pPlus').onclick=()=>setP(nP+1);$('#pMinus').onclick=()=>setP(nP-1);
+  $('#cRun').onclick=()=>setRun(!on);$('#cOne').onclick=sendOne;
+  $('#cTamper').onclick=()=>{tamperNext=!tamperNext;badNext=false;$('#cBadIn').setAttribute('aria-pressed','false');$('#cTamper').setAttribute('aria-pressed',tamperNext);evt.textContent=tamperNext?'NEXT RESULT WILL BE TAMPERED · WATCH THE VERIFIER':'TAMPER CANCELLED';if(tamperNext&&!on)sendOne()};
+  $('#cBadIn').onclick=()=>{badNext=!badNext;tamperNext=false;$('#cTamper').setAttribute('aria-pressed','false');$('#cBadIn').setAttribute('aria-pressed',badNext);evt.textContent=badNext?'NEXT JOB GETS A WRONG INPUT · WATCH THE VERIFIER':'BAD INPUT CANCELLED';if(badNext&&!on)sendOne()};
+  function syncView(){document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.view==='auto'?sway:false))}
+  const VIEWS={front:{yaw:0,pitch:.12},top:{yaw:-.4,pitch:1.15}};
+  document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view;if(v==='auto'){sway=!sway&&!reduce;target=null}else{sway=false;target=VIEWS[v]}syncView();if(v!=='auto')b.setAttribute('aria-pressed','true')}));
+  $('#cZi').onclick=()=>zoom=Math.min(1.7,zoom+.15);$('#cZo').onclick=()=>zoom=Math.max(.7,zoom-.15);
+  $('#cReset').onclick=()=>{setRun(false);wl=-1;markChips(-1);jobs=[];marks=[];hist=[];pBusy.fill(null);pJobs.fill(0);gen=ver=rej=0;tamperNext=badNext=false;$('#cTamper').setAttribute('aria-pressed','false');$('#cBadIn').setAttribute('aria-pressed','false');setP(2);demandPct=40;$('#sDem').value=40;pricePct=100;$('#sPrice').value=100;cost=1.2;$('#sCost').value=1.2;bb=.4;$('#sBb').value=40;$('#vBb').textContent='40%';zoom=1;sway=!reduce;target={yaw:-.4,pitch:.38};syncView();evt.textContent='ZKVM IDLE · PICK A WORKLOAD'};
+  new ResizeObserver(resize).observe(glass);resize();
+  new IntersectionObserver(es=>{const v=es[0].isIntersecting;if(v&&!running){running=true;lastNow=performance.now();requestAnimationFrame(frame)}else if(!v)running=false}).observe(glass);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)running=false;else if(!running){running=true;lastNow=performance.now();requestAnimationFrame(frame)}});
+  syncView();requestAnimationFrame(frame);
+  return {run:i=>pick(i)};
+})();
+document.querySelectorAll('.chip[data-i]').forEach(c=>c.addEventListener('click',()=>ZK.run(+c.dataset.i)));
+document.querySelectorAll('[data-run]').forEach(b=>b.addEventListener('click',()=>{$('#globeBox').scrollIntoView({behavior:reduce?'auto':'smooth',block:'center'});setTimeout(()=>ZK.run(+b.dataset.run),reduce?0:500)}));
+
+
+/* ---------- launch ---------- */
+$('#ltask').innerHTML=WL.map((w,i)=>`<option value="${i}">$${w.tk} · ${w.task}</option>`).join('');
+function lp(){
+  const tk=($('#ltk').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,10)||'TICKER';
+  const name=$('#lname').value.trim()||'Unnamed agent';const w=WL[+$('#ltask').value];const fw=$('#lfw').value;
+  const price=parseFloat(($('#lprice').value||'').replace(',','.'));const bud=+$('#lbud').value,bb=+$('#lbb').value;
+  $('#vbud').textContent=bud.toLocaleString('en-US')+' USDC';$('#vbb').textContent=bb+'%';
+  $('#pvTk').textContent='$'+tk;$('#pvGlyph').textContent=tk==='TICKER'?'?':tk[0];$('#pvName').textContent=name;
+  $('#pvTask').textContent=w.task;$('#pvFw').textContent=fw;$('#pvPrice').textContent=price>0?price+' USDC':'—';$('#pvBud').textContent=bud.toLocaleString('en-US')+' USDC';$('#pvBb').textContent=bb+'%';$('#pvCust').textContent=w.cust.charAt(0)+w.cust.slice(1).toLowerCase();
+  return {tk,name,w,fw,price,bud,bb};
+}
+['lname','ltk','ltask','lfw','lprice','lbud','lbb'].forEach(id=>$('#'+id).addEventListener('input',lp));lp();
+$('#lform').addEventListener('submit',async e=>{
+  e.preventDefault();const box=$('#sigbox');
+  if(!wallet.addr){openModal();return}
+  const c=lp();
+  if(!$('#lname').value.trim()||!$('#ltk').value.trim()||!(c.price>0)){box.className='sigbox show';box.textContent='Add an agent name, ticker and price per proof first.';return}
+  const msg=`ZKVM launch request\nAgent: ${c.name} ($${c.tk})\nTask: ${c.w.task}\nFramework: ${c.fw}\nPrice per proof: ${c.price} USDC\nDaily prover budget: ${c.bud} USDC\nNet revenue to buybacks: ${c.bb}%\nWallet: ${wallet.addr}\nIssued: ${new Date().toISOString()}`;
+  try{$('#lbtn').disabled=true;$('#lbtnLabel').textContent='Waiting for wallet…';const sig=await signText(msg);box.className='sigbox show';box.textContent='Signed. $'+c.tk+' is queued for launch. Signature: '+sig;toast('Launch request signed')}
+  catch(err){box.className='sigbox show';box.textContent=(err&&err.code===4001)?'Signature request was rejected in the wallet. Nothing was signed.':'Signing failed: '+((err&&err.message)||'unknown error')}
+  finally{$('#lbtn').disabled=false;renderWallet()}
+});
+
+/* ---------- flywheel ---------- */
+(function(){
+  const labels=['More agents + coins','More verifiable tasks','More proofs + fees','$ZKVM buybacks','More devs + provers'];
+  const cx=200,cy=200,R=160;let h='';
+  labels.forEach((l,i)=>{const ang=(-90+i*72)*Math.PI/180;const c=Math.cos(ang),s=Math.sin(ang);
+    const x=cx+R*c,y=cy+R*s,lx=cx+(R+26)*c,ly=cy+(R+26)*s;const anchor=Math.abs(c)<.2?'middle':(c>0?'start':'end');const dy=s<-.9?-14:(s>.6?20:5);
+    h+=`<rect class="nd" x="${x-14}" y="${y-14}" width="28" height="28" style="stroke:var(--acc)"/><text class="nn" x="${x}" y="${y+5}" text-anchor="middle" style="fill:var(--acc)">${i+1}</text><text x="${lx}" y="${ly+dy}" text-anchor="${anchor}">${l}</text>`});
+  $('#nodes').innerHTML=h;
+  if(reduce){const d=$('#flyDot');d.parentNode.removeChild(d)}
+})();
+})();
+</script>
+</body>
+</html>
